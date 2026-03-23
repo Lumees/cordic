@@ -1,0 +1,65 @@
+# =============================================================================
+# Lumees Lab IP — .gitignore
+# =============================================================================
+
+# ── Build artifacts (Vivado / Yosys / OpenLane) ─────────────────────────────
+build/
+*.bit
+*.bin
+*.mcs
+*.prm
+*.dcp
+*.xpr
+*.runs/
+*.cache/
+*.hw/
+*.ip_user_files/
+*.gen/
+vivado*.log
+vivado*.jou
+vivado*.str
+*.wdb
+*.wcfg
+
+# ── Simulation artifacts ────────────────────────────────────────────────────
+sim_build*/
+sim_build_*/
+results.xml
+dump.fst
+dump.vcd
+*.vcd
+*.fst
+*.ghw
+
+# ── Python ──────────────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+dist/
+*.so
+
+# ── LiteX build outputs ────────────────────────────────────────────────────
+litex/build/
+*.init
+*.svf
+
+# ── OS / Editor ─────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+*.code-workspace
+
+# ── Coverage / logs ─────────────────────────────────────────────────────────
+work/
+logs/
+*.log
+ucdb/
+covhtmlreport/
+transcript
+modelsim.ini

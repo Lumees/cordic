@@ -1,0 +1,43 @@
+Lumees Lab IP Core — Dual License
+==================================
+
+Copyright (c) 2026 Lumees Lab / Hasan Kurşun
+
+This IP core is licensed under a DUAL LICENSE model:
+
+1. NON-COMMERCIAL USE (Free)
+   ─────────────────────────
+   You may freely use, modify, and distribute this IP core for:
+   • Academic research and teaching
+   • Personal hobby projects
+   • Open-source non-commercial projects
+   • Educational purposes
+   • Evaluation and prototyping
+
+   This usage is governed by the Apache License 2.0.
+   See: http://www.apache.org/licenses/LICENSE-2.0
+
+2. COMMERCIAL USE (License Required)
+   ──────────────────────────────────
+   Any use of this IP core in a commercial product, service, or
+   revenue-generating activity requires a separate commercial license
+   from Lumees Lab. This includes but is not limited to:
+   • Products sold or licensed to third parties
+   • Internal tools used in commercial operations
+   • ASIC/FPGA designs in commercial products
+   • SaaS or cloud services incorporating this IP
+
+   Contact Lumees Lab for commercial licensing:
+   • Email: info@lumeeslab.com
+   • Web:   https://lumeeslab.com
+
+ATTRIBUTION
+───────────
+When using this IP core under the non-commercial license, attribution
+to Lumees Lab is appreciated but not required.
+
+DISCLAIMER
+──────────
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED. IN NO EVENT SHALL LUMEES LAB BE LIABLE FOR ANY CLAIM, DAMAGES
+OR OTHER LIABILITY ARISING FROM THE USE OF THIS SOFTWARE.

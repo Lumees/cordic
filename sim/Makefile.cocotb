@@ -1,0 +1,69 @@
+# =============================================================================
+# CORDIC - cocotb/Verilator Simulation Makefile
+# =============================================================================
+
+TOPLEVEL_LANG ?= verilog
+SIM           ?= verilator
+
+# ─── Default target: cordic_top ───────────────────────────────────────────────
+TOPLEVEL      ?= cordic_top
+MODULE        ?= test_cordic
+
+RTL_DIR := $(realpath ../rtl)
+TB_DIR  := $(realpath ../tb/directed)
+MODEL_DIR := $(realpath ../model)
+
+# Common RTL files (all targets need these)
+CORDIC_CORE_SRCS := \
+    $(RTL_DIR)/cordic_pkg.sv       \
+    $(RTL_DIR)/cordic_stage.sv     \
+    $(RTL_DIR)/cordic_core.sv      \
+    $(RTL_DIR)/cordic_pre_proc.sv  \
+    $(RTL_DIR)/cordic_post_proc.sv \
+    $(RTL_DIR)/cordic_top.sv
+
+# Select RTL sources based on TOPLEVEL
+ifeq ($(TOPLEVEL), cordic_top)
+    VERILOG_SOURCES ?= $(CORDIC_CORE_SRCS)
+    MODULE          ?= test_cordic
+else ifeq ($(TOPLEVEL), cordic_axil)
+    VERILOG_SOURCES ?= $(CORDIC_CORE_SRCS) $(RTL_DIR)/cordic_axil.sv
+    MODULE          ?= test_cordic_axil
+else ifeq ($(TOPLEVEL), cordic_wb)
+    VERILOG_SOURCES ?= $(CORDIC_CORE_SRCS) $(RTL_DIR)/cordic_wb.sv
+    MODULE          ?= test_cordic_wb
+else ifeq ($(TOPLEVEL), cordic_axis)
+    VERILOG_SOURCES ?= $(CORDIC_CORE_SRCS) $(RTL_DIR)/cordic_axis.sv
+    MODULE          ?= test_cordic_axis
+endif
+
+# Verilator extra args
+ifeq ($(SIM), verilator)
+    COMPILE_ARGS += --sv -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNUSED -Wno-CASEINCOMPLETE
+    SIM_ARGS     += --vcd cordic_sim.vcd
+    EXTRA_ARGS   += --trace --trace-structs
+endif
+
+# Python path
+export PYTHONPATH := $(MODEL_DIR):$(TB_DIR):$(PYTHONPATH)
+
+# cocotb auto-generated Makefile
+include $(shell cocotb-config --makefiles)/Makefile.sim
+
+# ─── Convenience aliases ──────────────────────────────────────────────────────
+.PHONY: sim-top sim-axil sim-wb sim-axis sim-all
+
+sim-top:
+	$(MAKE) -f Makefile.cocotb TOPLEVEL=cordic_top  MODULE=test_cordic  SIM_BUILD=sim_build_top
+
+sim-axil:
+	$(MAKE) -f Makefile.cocotb TOPLEVEL=cordic_axil MODULE=test_cordic_axil SIM_BUILD=sim_build_axil
+
+sim-wb:
+	$(MAKE) -f Makefile.cocotb TOPLEVEL=cordic_wb   MODULE=test_cordic_wb   SIM_BUILD=sim_build_wb
+
+sim-axis:
+	$(MAKE) -f Makefile.cocotb TOPLEVEL=cordic_axis MODULE=test_cordic_axis  SIM_BUILD=sim_build_axis
+
+sim-all: sim-top sim-axil sim-wb sim-axis
+	@echo "All interface simulations complete"
