@@ -60,96 +60,73 @@ module cordic_stage #(
       (STAGE_IDX <= FRAC_BITS) ? DATA_WIDTH'(64'h1 << LINR_ALPHA_SHIFT) : '0;
 
   // -------------------------------------------------------------------------
-  // Stage logic
+  // Combinational intermediates (Vivado/DC compatible — no automatic in FF)
+  // -------------------------------------------------------------------------
+  logic signed [DATA_WIDTH-1:0] stg_x, stg_y, stg_z;
+  logic signed [DATA_WIDTH-1:0] stg_xs, stg_ys;
+  logic signed [DATA_WIDTH-1:0] stg_alpha;
+  logic                          stg_d;
+  logic signed [DATA_WIDTH-1:0] next_x, next_y, next_z;
+
+  always_comb begin
+    stg_x = din.x;
+    stg_y = din.y;
+    stg_z = din.z;
+
+    // Direction decision
+    unique case (din.mode)
+      ROTATION : stg_d = ~stg_z[DATA_WIDTH-1];
+      VECTORING: stg_d = (din.coord == HYPR) ? ~stg_y[DATA_WIDTH-1] : stg_y[DATA_WIDTH-1];
+      default:   stg_d = ~stg_z[DATA_WIDTH-1];
+    endcase
+
+    // Shifted operands
+    unique case (din.coord)
+      CIRC, LINR: begin stg_xs = stg_x >>> CIRC_SHIFT;     stg_ys = stg_y >>> CIRC_SHIFT;     end
+      HYPR:       begin stg_xs = stg_x >>> HYPR_SHIFT_VAL;  stg_ys = stg_y >>> HYPR_SHIFT_VAL;  end
+      default:    begin stg_xs = stg_x >>> CIRC_SHIFT;     stg_ys = stg_y >>> CIRC_SHIFT;     end
+    endcase
+
+    // Angle constant
+    unique case (din.coord)
+      CIRC:    stg_alpha = ALPHA_CIRC;
+      LINR:    stg_alpha = ALPHA_LINR;
+      HYPR:    stg_alpha = ALPHA_HYPR;
+      default: stg_alpha = ALPHA_CIRC;
+    endcase
+
+    // Next x, y
+    unique case (din.coord)
+      CIRC:    begin next_x = stg_d ? (stg_x - stg_ys) : (stg_x + stg_ys);
+                     next_y = stg_d ? (stg_y + stg_xs) : (stg_y - stg_xs); end
+      LINR:    begin next_x = stg_x;
+                     next_y = stg_d ? (stg_y + stg_xs) : (stg_y - stg_xs); end
+      HYPR:    begin next_x = stg_d ? (stg_x + stg_ys) : (stg_x - stg_ys);
+                     next_y = stg_d ? (stg_y + stg_xs) : (stg_y - stg_xs); end
+      default: begin next_x = stg_x; next_y = stg_y; end
+    endcase
+
+    // Next z
+    next_z = stg_d ? (stg_z - stg_alpha) : (stg_z + stg_alpha);
+  end
+
+  // -------------------------------------------------------------------------
+  // Registered stage output
   // -------------------------------------------------------------------------
   always_ff @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
       dout <= '0;
     end else begin
-      // Propagate metadata (including sticky sat)
       dout.coord <= din.coord;
       dout.mode  <= din.mode;
       dout.tag   <= din.tag;
       dout.valid <= din.valid;
-      dout.sat   <= din.sat;   // propagate — only pre/post_proc set new sat
+      dout.sat   <= din.sat;
 
       if (din.valid) begin
-        automatic logic signed [DATA_WIDTH-1:0] x, y, z;
-        automatic logic signed [DATA_WIDTH-1:0] xs, ys;   // shifted values
-        automatic logic signed [DATA_WIDTH-1:0] alpha;
-        automatic logic                          d;        // rotation direction (+1=1, -1=0)
-
-        x = din.x;
-        y = din.y;
-        z = din.z;
-
-        // ------------------------------------------------------------------
-        // Direction decision
-        // ------------------------------------------------------------------
-        unique case (din.mode)
-          ROTATION : d = ~z[DATA_WIDTH-1];  // 1 if z>=0
-          VECTORING: begin
-            if (din.coord == HYPR)
-              d = ~y[DATA_WIDTH-1];   // 1 if y>=0
-            else
-              d = y[DATA_WIDTH-1];    // 1 if y<0  (drive y→0 by adding when y<0)
-          end
-          default: d = ~z[DATA_WIDTH-1];
-        endcase
-
-        // ------------------------------------------------------------------
-        // Shifted operands (arithmetic right shift — truncating)
-        // ------------------------------------------------------------------
-        unique case (din.coord)
-          CIRC, LINR: begin
-            xs = x >>> CIRC_SHIFT;
-            ys = y >>> CIRC_SHIFT;
-          end
-          HYPR: begin
-            xs = x >>> HYPR_SHIFT_VAL;
-            ys = y >>> HYPR_SHIFT_VAL;
-          end
-          default: begin
-            xs = x >>> CIRC_SHIFT;
-            ys = y >>> CIRC_SHIFT;
-          end
-        endcase
-
-        // ------------------------------------------------------------------
-        // Angle constant selection
-        // ------------------------------------------------------------------
-        unique case (din.coord)
-          CIRC:    alpha = ALPHA_CIRC;
-          LINR:    alpha = ALPHA_LINR;
-          HYPR:    alpha = ALPHA_HYPR;
-          default: alpha = ALPHA_CIRC;
-        endcase
-
-        // ------------------------------------------------------------------
-        // Update x, y, z
-        // ------------------------------------------------------------------
-        unique case (din.coord)
-          CIRC: begin
-            dout.x <= d ? (x - ys) : (x + ys);
-            dout.y <= d ? (y + xs) : (y - xs);
-          end
-          LINR: begin
-            dout.x <= x;
-            dout.y <= d ? (y + xs) : (y - xs);
-          end
-          HYPR: begin
-            dout.x <= d ? (x + ys) : (x - ys);
-            dout.y <= d ? (y + xs) : (y - xs);
-          end
-          default: begin
-            dout.x <= x;
-            dout.y <= y;
-          end
-        endcase
-
-        // z' = z ∓ alpha
-        dout.z <= d ? (z - alpha) : (z + alpha);
-
+        dout.x <= next_x;
+        dout.y <= next_y;
+        dout.z <= next_z;
       end else begin
         dout.x <= din.x;
         dout.y <= din.y;

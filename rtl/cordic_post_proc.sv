@@ -66,8 +66,23 @@ module cordic_post_proc #(
   localparam logic signed [DATA_WIDTH-1:0] SAT_MAX = {1'b0, {(DATA_WIDTH-1){1'b1}}};
   localparam logic signed [DATA_WIDTH-1:0] SAT_MIN = {1'b1, {(DATA_WIDTH-1){1'b0}}};
 
-// -------------------------------------------------------------------------
-  // Gain-corrected pipeline stage
+  // -------------------------------------------------------------------------
+  // Combinational gain correction (Vivado/DC compatible)
+  // -------------------------------------------------------------------------
+  logic signed [2*DATA_WIDTH-1:0] pp_kinv, pp_xc, pp_yc;
+  logic                            pp_sat_x, pp_sat_y, pp_sat_new;
+
+  always_comb begin
+    pp_kinv = (din.coord == CIRC) ? CIRC_KINV : HYPR_KINV;
+    pp_xc   = ($signed(din.x) * $signed(pp_kinv) + ROUND_HALF) >>> FRAC_BITS;
+    pp_yc   = ($signed(din.y) * $signed(pp_kinv) + ROUND_HALF) >>> FRAC_BITS;
+    pp_sat_x   = (pp_xc[2*DATA_WIDTH-1:DATA_WIDTH] != {DATA_WIDTH{pp_xc[DATA_WIDTH-1]}});
+    pp_sat_y   = (pp_yc[2*DATA_WIDTH-1:DATA_WIDTH] != {DATA_WIDTH{pp_yc[DATA_WIDTH-1]}});
+    pp_sat_new = pp_sat_x | pp_sat_y;
+  end
+
+  // -------------------------------------------------------------------------
+  // Registered output
   // -------------------------------------------------------------------------
   always_ff @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
@@ -79,44 +94,21 @@ module cordic_post_proc #(
       dout.valid <= din.valid;
 
       if (!APPLY_GAIN || din.coord == LINR) begin
-        // ── No gain: pass through x, y ──────────────────────────────────
         dout.x   <= din.x;
         dout.y   <= din.y;
-        dout.sat <= din.sat;   // no new saturation possible here
-        // Add quadrant offset for circular vectoring
+        dout.sat <= din.sat;
         if (din.coord == CIRC && din.mode == VECTORING && quad_offset_valid)
           dout.z <= din.z + quad_offset;
         else
           dout.z <= din.z;
 
       end else begin
-        // ── Gain correction: multiply-by-constant then arithmetic shift ──
-        automatic logic signed [2*DATA_WIDTH-1:0] kinv;
-        automatic logic signed [2*DATA_WIDTH-1:0] xc, yc;
-        automatic logic                            sat_x, sat_y, sat_new;
+        dout.x <= pp_sat_x ? (pp_xc[2*DATA_WIDTH-1] ? SAT_MIN : SAT_MAX)
+                           : pp_xc[DATA_WIDTH-1:0];
+        dout.y <= pp_sat_y ? (pp_yc[2*DATA_WIDTH-1] ? SAT_MIN : SAT_MAX)
+                           : pp_yc[DATA_WIDTH-1:0];
+        dout.sat <= din.sat | pp_sat_new;
 
-        kinv = (din.coord == CIRC) ? CIRC_KINV : HYPR_KINV;
-
-        // Multiply, add optional rounding addend, then shift
-        xc = ($signed(din.x) * $signed(kinv) + ROUND_HALF) >>> FRAC_BITS;
-        yc = ($signed(din.y) * $signed(kinv) + ROUND_HALF) >>> FRAC_BITS;
-
-        // Saturation check: result must fit in DATA_WIDTH signed bits.
-        // Valid if upper DATA_WIDTH bits are all copies of bit [DATA_WIDTH-1].
-        sat_x = (xc[2*DATA_WIDTH-1:DATA_WIDTH] != {DATA_WIDTH{xc[DATA_WIDTH-1]}});
-        sat_y = (yc[2*DATA_WIDTH-1:DATA_WIDTH] != {DATA_WIDTH{yc[DATA_WIDTH-1]}});
-        sat_new = sat_x | sat_y;
-
-        // Clamp to saturation limits; use full-product sign for direction
-        dout.x <= sat_x ? (xc[2*DATA_WIDTH-1] ? SAT_MIN : SAT_MAX)
-                        : xc[DATA_WIDTH-1:0];
-        dout.y <= sat_y ? (yc[2*DATA_WIDTH-1] ? SAT_MIN : SAT_MAX)
-                        : yc[DATA_WIDTH-1:0];
-
-        // Sticky sat: OR with upstream sat
-        dout.sat <= din.sat | sat_new;
-
-        // z: no gain correction; add quadrant offset for circ vectoring
         if (din.coord == CIRC && din.mode == VECTORING && quad_offset_valid)
           dout.z <= din.z + quad_offset;
         else

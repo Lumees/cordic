@@ -118,7 +118,7 @@ package cordic_pkg;
   //
   // Precomputed float values for the standard STAGES=16 schedule:
   //   K_circ_inv = ∏_{i=0}^{15} cos(atan(2^-i))    ≈ 0.6072529350…
-  //   K_hypr_inv = ∏_{stage}  1/cosh(atanh(2^-sh)) ≈ 1.2074953741…
+  //   K_hypr_inv = ∏_{stage}  1/√(1 − 2^(−2·sh))   ≈ 1.2074970670…
   //
   // Scaled to Q2.FRAC_BITS format by multiplying by 2^FRAC_BITS.
   // Uses real literals + simple 2.0**FRAC_BITS (no $sqrt needed — works
@@ -127,7 +127,7 @@ package cordic_pkg;
   // For STAGES != 16, update the float literals accordingly.
   // ---------------------------------------------------------------------------
   localparam real CIRC_KINV_FLOAT = 0.6072529350088813;
-  localparam real HYPR_KINV_FLOAT = 1.2074953740685081;
+  localparam real HYPR_KINV_FLOAT = 1.2074970670133596;
 
   function automatic logic signed [2*DATA_WIDTH-1:0] circ_kinv_q();
     longint scale = longint'(1) << (DATA_WIDTH - 2);
