@@ -6,6 +6,20 @@
 # Free for non-commercial use (academic, research, hobby, education).
 # Commercial use requires a Lumees Lab license: info@lumeeslab.com
 # =============================================================================
+
+# ── Workaround: LiteX CSR auto-naming fails on Python 3.12 ──────────────────
+import itertools as _it
+_csr_counter = _it.count()
+import litex.soc.interconnect.csr as _litex_csr
+def _CSRBase_patched_init(self, size, name, n=None):
+    from migen.fhdl.tracer import get_obj_var_name
+    try: resolved = get_obj_var_name(name)
+    except Exception: resolved = None
+    if resolved is None: resolved = name if name is not None else f"_csr_{next(_csr_counter)}"
+    from migen import DUID; DUID.__init__(self)
+    self.n = n; self.fixed = n is not None; self.size = size; self.name = resolved
+_litex_csr._CSRBase.__init__ = _CSRBase_patched_init
+
 """
 CORDIC SoC for Arty A7-100T
 ============================
@@ -54,7 +68,7 @@ from cordic_litex import CORDIC
 class _CRG(Module):
     def __init__(self, platform, sys_clk_freq):
         self.rst = Signal()
-        self.clock_domains.cd_sys = ClockDomain()
+        self.clock_domains.cd_sys = ClockDomain("sys")
 
         self.submodules.pll = pll = S7PLL(speedgrade=-1)
         self.comb += pll.reset.eq(~platform.request("cpu_reset") | self.rst)
